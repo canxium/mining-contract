@@ -118,6 +118,13 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
     }
 
     /** 
+     * @dev return total mining reward
+     */
+    function totalMiningReward() public view returns (uint256) {
+        return minerReward + treasuryReward + validatorReward;
+    }
+
+    /** 
      * @dev Mining distribute reward to foundation, coinbase and tx miner.
      * @param receiver Miner receiver address
      */
