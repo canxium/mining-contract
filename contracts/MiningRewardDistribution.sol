@@ -41,9 +41,9 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
         __UUPSUpgradeable_init();
 
         // init default values
-        treasuryTax = 15; // 15%
+        treasuryTax = 10; // 10%
         coinbaseTax = 15;   // 15%
-        zeroOffTax = 5; // if the receiver have no OFF, foundation tax will be 15% + 5%
+        zeroOffTax = 5; // if the receiver have no OFF, treasury tax will be 10% + 5%
 
         burnAmount = 1000000; // Burn 1 OFF per mining transaction
 
@@ -70,7 +70,7 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
     /** 
      * @dev return current foundation wallet.
      */
-    function getFoundationWallet() public view returns (address) {
+    function getTreasuryWallet() public view returns (address) {
         return treasuryAddress;
     }
 
