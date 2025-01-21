@@ -25,11 +25,26 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
 
     address payable treasuryAddress; // canxium treasury wallet address
 
+    // merge mining
+    uint256 private mergeMiningTreasuryTax;
+    uint256 private mergeMiningCoinbaseBaseTax;
+    uint256 private mergeMiningCoinbaseDefaultTax;
+
+    uint256 public mergeMiningMinerReward; // total CAU reward distributed for offline miners.
+    uint256 public mergeMiningTreasuryReward; // total CAU reward distributed for canxium treasury.
+    uint256 public mergeMiningValidatorReward; // total CAU reward distributed for validators.
+
+    uint256 private heliumForkTime;
+
     event TreasuryTax(uint256 indexed tax, uint256 indexed burnTax);
     event CoinbaseTax(uint256 indexed tax);
     event BurnAmount(uint256 indexed amount);
+
     event MiningReward(address indexed from, address indexed to, uint256 indexed amount);
     event MiningTaxes(address treasury, uint256 amount1, address coinbase, uint256 amount2);
+    
+    event MergeMiningReward(address indexed from, address indexed to, uint256 indexed amount);
+    event MergeMiningTaxes(address treasury, uint256 amount1, address coinbase, uint256 amount2);
 
     /** 
      * @dev Create a new contract to distribute the reward to foundation wallet, coinbase and miner wallet.
@@ -45,13 +60,18 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
         coinbaseTax = 15;   // 15%
         zeroOffTax = 5; // if the receiver have no OFF, treasury tax will be 10% + 5%
 
+        // merge mining taxes
+        mergeMiningTreasuryTax = 15;
+        mergeMiningCoinbaseDefaultTax = 1000; // /10000
+        mergeMiningCoinbaseBaseTax = 100;
+
         burnAmount = 1000000; // Burn 1 OFF per mining transaction
 
         minimumOffSupply = 21000000000000; // 21m OFF
-        treasuryAddress = payable(0xBd65D6efb2C3e6B4dD33C664643BEB8e5E133055);
+        treasuryAddress = payable(0xF26417eCf894678B58feda327DC01A60041856fB);
 
         // pre-mine 210b OFF to foundation wallet
-        _mint(treasuryAddress, 210000000000000000);
+        _mint(treasuryAddress, 21000000000000000);
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -79,6 +99,13 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
      */
     function getTaxes() public view returns (uint256, uint256, uint256) {
         return (treasuryTax, coinbaseTax, zeroOffTax);
+    }
+
+    /** 
+     * @dev return current merge mining taxes
+     */
+    function getMergeMiningTaxes() public view returns (uint256, uint256, uint256) {
+        return (mergeMiningTreasuryTax, mergeMiningCoinbaseBaseTax, mergeMiningCoinbaseDefaultTax);
     }
 
     /** 
@@ -118,10 +145,43 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
     }
 
     /** 
+     * @dev set and emit foundation tax
+     * @param tax Percent of foundation tax
+     */
+    function setMergeMiningTreasuryTax(uint256 tax) public onlyOwner {
+        mergeMiningTreasuryTax = tax;
+    }
+
+    /** 
+     * @dev set and emit coinbase tax
+     * @param baseTax Percent of coinbase tax
+     * @param defaultTax Percent of coinbase tax
+     */
+    function setMergeMiningCoinbaseTax(uint256 baseTax, uint256 defaultTax) public onlyOwner {
+        mergeMiningCoinbaseBaseTax = baseTax;
+        mergeMiningCoinbaseDefaultTax = defaultTax;
+    }
+
+    /** 
+     * @dev set helium fork time
+     * @param forkTime helium fork time
+     */
+    function setHeliumForkTime(uint256 forkTime) public onlyOwner {
+        heliumForkTime = forkTime;
+    }
+
+    /** 
      * @dev return total mining reward
      */
     function totalMiningReward() public view returns (uint256) {
         return minerReward + treasuryReward + validatorReward;
+    }
+
+    /** 
+     * @dev return total mining reward
+     */
+    function totalMergeMiningReward() public view returns (uint256) {
+        return mergeMiningMinerReward + mergeMiningTreasuryReward + mergeMiningValidatorReward;
     }
 
     /** 
@@ -156,5 +216,60 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
         // emit events
         emit MiningReward(msg.sender, to, reward);
         emit MiningTaxes(treasuryAddress, fundReward, coinbase, coinbaseReward);
+    }
+
+    /** 
+     * @dev Merge Mining distribute reward to foundation, coinbase and tx miner.
+     * @param receiver Miner receiver address
+     */
+    function mergeMining(address receiver) public payable {
+        address payable to = payable(receiver);
+        address payable coinbase = payable(block.coinbase);
+
+        require(msg.value > 0, "invalid merge mining value");
+
+        require(mergeMiningTreasuryTax > 0, "invalid merge mining treasury tax");
+
+        uint256 mergeMiningCoinbaseTax = coinbaseRewardPercentage(block.timestamp);
+
+        uint256 fundReward = msg.value * mergeMiningTreasuryTax / 100;
+        uint256 coinbaseReward = msg.value * mergeMiningCoinbaseTax / 10000;
+        uint256 reward = msg.value - fundReward - coinbaseReward;
+        
+        require(reward > 0, "invalid merge mining miner reward");
+
+        to.transfer(reward);
+        treasuryAddress.transfer(fundReward);
+        coinbase.transfer(coinbaseReward);
+
+        mergeMiningMinerReward = mergeMiningMinerReward + reward;
+        mergeMiningTreasuryReward = mergeMiningTreasuryReward + fundReward;
+        mergeMiningValidatorReward = mergeMiningValidatorReward + coinbaseReward;
+        
+        // emit events
+        emit MergeMiningReward(msg.sender, to, reward);
+        emit MergeMiningTaxes(treasuryAddress, fundReward, coinbase, coinbaseReward);
+    }
+
+    function mergeMiningDay(uint256 blockTime) private view returns (uint256) {
+        if (blockTime < heliumForkTime) {
+            return 0;
+        }
+
+        // Calculate the difference in seconds and convert to days
+        uint256 dayNumber = (blockTime - heliumForkTime) / 86400;
+        return dayNumber;
+    }
+    
+    // return percent in / 10000
+    function coinbaseRewardPercentage(uint256 blockTime) private view returns (uint256) {
+        uint256 dayNum = mergeMiningDay(blockTime);
+        if (dayNum <= 0) {
+            return mergeMiningCoinbaseBaseTax; // 0.01
+        }
+        if (dayNum > 0 && dayNum <= 115) {
+            return mergeMiningCoinbaseBaseTax + 7*dayNum;
+        }
+        return mergeMiningCoinbaseDefaultTax;
     }
 }
