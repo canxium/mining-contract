@@ -36,6 +36,8 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
 
     uint256 private heliumForkTime;
 
+    mapping(address => mapping(uint16 => uint256)) public mergeMiningTimestamp;
+
     event TreasuryTax(uint256 indexed tax, uint256 indexed burnTax);
     event CoinbaseTax(uint256 indexed tax);
     event BurnAmount(uint256 indexed amount);
@@ -61,9 +63,10 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
         zeroOffTax = 5; // if the receiver have no OFF, treasury tax will be 10% + 5%
 
         // merge mining taxes
-        mergeMiningTreasuryTax = 15;
-        mergeMiningCoinbaseDefaultTax = 1000; // /10000
-        mergeMiningCoinbaseBaseTax = 100;
+        mergeMiningTreasuryTax = 10;
+        mergeMiningCoinbaseBaseTax = 100; // / 10000 = 0.01
+        mergeMiningCoinbaseDefaultTax = 1000; // /10000 = 0.1
+        heliumForkTime = 1737608968;
 
         burnAmount = 1000000; // Burn 1 OFF per mining transaction
 
@@ -222,12 +225,13 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
      * @dev Merge Mining distribute reward to foundation, coinbase and tx miner.
      * @param receiver Miner receiver address
      */
-    function mergeMining(address receiver) public payable {
+    function mergeMining(address receiver, uint16 chain, uint256 timestamp) public payable {
         address payable to = payable(receiver);
         address payable coinbase = payable(block.coinbase);
 
         require(msg.value > 0, "invalid merge mining value");
-
+        require(chain > 0, "invalid merge mining chain id");
+        require(timestamp > mergeMiningTimestamp[receiver][chain], "invalid merge mining timestamp");
         require(mergeMiningTreasuryTax > 0, "invalid merge mining treasury tax");
 
         uint256 mergeMiningCoinbaseTax = coinbaseRewardPercentage(block.timestamp);
@@ -249,6 +253,7 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
         // emit events
         emit MergeMiningReward(msg.sender, to, reward);
         emit MergeMiningTaxes(treasuryAddress, fundReward, coinbase, coinbaseReward);
+        mergeMiningTimestamp[receiver][chain] = timestamp;
     }
 
     function mergeMiningDay(uint256 blockTime) private view returns (uint256) {
@@ -271,5 +276,9 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
             return mergeMiningCoinbaseBaseTax + 7*dayNum;
         }
         return mergeMiningCoinbaseDefaultTax;
+    }
+
+    function getMergeMiningTimestamp(address miner, uint16 chain) public view returns (uint256) {
+        return mergeMiningTimestamp[miner][chain];
     }
 }
