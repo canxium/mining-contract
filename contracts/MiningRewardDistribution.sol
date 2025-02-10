@@ -28,7 +28,6 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
     // merge mining
     uint256 private mergeMiningTreasuryTax;
     uint256 private mergeMiningCoinbaseBaseTax;
-    uint256 private mergeMiningCoinbaseDefaultTax;
 
     uint256 public mergeMiningMinerReward; // total CAU reward distributed for offline miners.
     uint256 public mergeMiningTreasuryReward; // total CAU reward distributed for canxium treasury.
@@ -67,8 +66,7 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
         // merge mining taxes
         mergeMiningTreasuryTax = 10;
         mergeMiningCoinbaseBaseTax = 100; // / 10000 = 0.01
-        mergeMiningCoinbaseDefaultTax = 1000; // /10000 = 0.1
-        heliumForkTime = 1737884221;
+        heliumForkTime = 1739090682;
 
         burnAmount = 1000000; // Burn 1 OFF per mining transaction
 
@@ -109,8 +107,8 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
     /** 
      * @dev return current merge mining taxes
      */
-    function getMergeMiningTaxes() public view returns (uint256, uint256, uint256) {
-        return (mergeMiningTreasuryTax, mergeMiningCoinbaseBaseTax, mergeMiningCoinbaseDefaultTax);
+    function getMergeMiningTaxes() public view returns (uint256, uint256) {
+        return (mergeMiningTreasuryTax, mergeMiningCoinbaseBaseTax);
     }
 
     /** 
@@ -160,11 +158,9 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
     /** 
      * @dev set and emit coinbase tax
      * @param baseTax Percent of coinbase tax
-     * @param defaultTax Percent of coinbase tax
      */
-    function setMergeMiningCoinbaseTax(uint256 baseTax, uint256 defaultTax) public onlyOwner {
+    function setMergeMiningCoinbaseTax(uint256 baseTax) public onlyOwner {
         mergeMiningCoinbaseBaseTax = baseTax;
-        mergeMiningCoinbaseDefaultTax = defaultTax;
     }
 
     /** 
@@ -267,26 +263,20 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
         emit MergeMiningTaxes(treasuryAddress, fundReward, coinbase, coinbaseReward);
     }
 
-    function mergeMiningDay(uint256 blockTime) private view returns (uint256) {
+    function monthPassedSinceFork(uint256 blockTime) private view returns (uint256) {
         if (blockTime < heliumForkTime) {
             return 0;
         }
 
-        // Calculate the difference in seconds and convert to days
-        uint256 dayNumber = (blockTime - heliumForkTime) / 86400;
-        return dayNumber;
+        // Calculate the difference in seconds and convert to month
+        uint256 month = (blockTime - heliumForkTime) / 2592000;
+        return month;
     }
-    
+
     // return percent in / 10000
     function coinbaseRewardPercentage(uint256 blockTime) private view returns (uint256) {
-        uint256 dayNum = mergeMiningDay(blockTime);
-        if (dayNum <= 0) {
-            return mergeMiningCoinbaseBaseTax; // 0.01
-        }
-        if (dayNum > 0 && dayNum <= 115) {
-            return mergeMiningCoinbaseBaseTax + 7*dayNum;
-        }
-        return mergeMiningCoinbaseDefaultTax;
+        uint256 month = monthPassedSinceFork(blockTime);
+        return mergeMiningCoinbaseBaseTax + 12 * month;
     }
 
     function getMergeMiningTimestamp(address miner, uint16 chain) public view returns (uint256) {
