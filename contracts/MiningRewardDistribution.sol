@@ -12,6 +12,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20Burnable
  * @title Offline Mining Reward Distribution
  */
 contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable, ERC20BurnableUpgradeable {
+    // WARNING: Change vars, change slot number in go-canxium/core/state/statedb.go line 42
     uint256 private treasuryTax;
     uint256 private coinbaseTax;
     uint256 private zeroOffTax; // If the receiver have no OFF, plus this tax to canxium treasury
@@ -26,14 +27,14 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
     address payable treasuryAddress; // canxium treasury wallet address
 
     // cross chain RPoW mining
-    uint256 private crossChainMiningTreasuryTax;
-    uint256 private crossChainMiningCoinbaseBaseTax;
+    uint256 private crossChainMiningTreasuryTax = 10; // / 100 = 10%
+    uint256 private crossChainMiningCoinbaseBaseTax = 250;  // / 10000 = 2.5%
 
     uint256 public crossChainMiningMinerReward; // total CAU reward distributed for miners.
     uint256 public crossChainMiningTreasuryReward; // total CAU reward distributed for canxium treasury.
     uint256 public crossChainMiningValidatorReward; // total CAU reward distributed for validators.
 
-    uint256 private heliumForkTime;
+    uint256 public heliumForkTime = 1740787200;
 
     mapping(address => mapping(uint16 => uint256)) public crossChainMiningTimestamp;
 
@@ -66,13 +67,13 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
 
         // cross chain mining taxes
         crossChainMiningTreasuryTax = 10;
-        crossChainMiningCoinbaseBaseTax = 100; // / 10000 = 0.01
-        heliumForkTime = 1739450709;
+        crossChainMiningCoinbaseBaseTax = 250;
+        heliumForkTime = 1740787200;
 
         burnAmount = 1000000; // Burn 1 OFF per mining transaction
 
         minimumOffSupply = 21000000000000; // 21m OFF
-        treasuryAddress = payable(0xF26417eCf894678B58feda327DC01A60041856fB);
+        treasuryAddress = payable(0xBd65D6efb2C3e6B4dD33C664643BEB8e5E133055);
 
         // pre-mine 210b OFF to foundation wallet
         _mint(treasuryAddress, 21000000000000000);
@@ -110,6 +111,27 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
      */
     function getCrossChainMiningTaxes() public view returns (uint256, uint256) {
         return (crossChainMiningTreasuryTax, crossChainMiningCoinbaseBaseTax);
+    }
+
+    /** 
+     * @dev return total miner rewards
+     */
+    function getMinerReward() public view returns (uint256) {
+        return minerReward + crossChainMiningMinerReward;
+    }
+
+    /** 
+     * @dev return total validator rewards
+     */
+    function getValidatorReward() public view returns (uint256) {
+        return validatorReward + crossChainMiningValidatorReward;
+    }
+
+    /** 
+     * @dev return total treasury rewards
+     */
+    function getTreasuryReward() public view returns (uint256) {
+        return treasuryReward + crossChainMiningTreasuryReward;
     }
 
     /** 
