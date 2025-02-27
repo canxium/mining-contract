@@ -27,14 +27,14 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
     address payable treasuryAddress; // canxium treasury wallet address
 
     // cross chain RPoW mining
-    uint256 private crossChainMiningTreasuryTax = 10; // / 100 = 10%
-    uint256 private crossChainMiningCoinbaseBaseTax = 250;  // / 10000 = 2.5%
+    uint256 private crossChainMiningTreasuryTax; // / 100 = 10%
+    uint256 private crossChainMiningCoinbaseBaseTax;  // / 10000 = 2.5%
 
     uint256 public crossChainMiningMinerReward; // total CAU reward distributed for miners.
     uint256 public crossChainMiningTreasuryReward; // total CAU reward distributed for canxium treasury.
     uint256 public crossChainMiningValidatorReward; // total CAU reward distributed for validators.
 
-    uint256 public heliumForkTime = 1740787200;
+    uint256 public heliumForkTime;
 
     mapping(address => mapping(uint16 => uint256)) public crossChainMiningTimestamp;
 
@@ -301,7 +301,7 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
     // return percent in / 10000
     function coinbaseRewardPercentage(uint256 blockTime) private view returns (uint256) {
         uint256 month = monthPassedSinceFork(blockTime);
-        uint256 tax = crossChainMiningCoinbaseBaseTax + 12 * month;
+        uint256 tax = crossChainMiningCoinbaseBaseTax + 25 * month;
         if (tax > MAX_COINBASE_TAX) {
             return MAX_COINBASE_TAX;
         }
