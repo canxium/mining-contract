@@ -41,6 +41,7 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
     uint256 private constant KASPA_CHAIN = 1;
     uint256 private constant MAX_COINBASE_TAX = 1500; // max validator tax 15% = 1500 / 10000
 
+
     event TreasuryTax(uint256 indexed tax, uint256 indexed burnTax);
     event CoinbaseTax(uint256 indexed tax);
     event BurnAmount(uint256 indexed amount);
@@ -73,7 +74,7 @@ contract MiningRewardDistribution is Initializable, UUPSUpgradeable, ERC20Upgrad
         burnAmount = 1000000; // Burn 1 OFF per mining transaction
 
         minimumOffSupply = 21000000000000; // 21m OFF
-        treasuryAddress = payable(0xBd65D6efb2C3e6B4dD33C664643BEB8e5E133055);
+        treasuryAddress = payable(0xF26417eCf894678B58feda327DC01A60041856fB);
 
         // pre-mine 210b OFF to foundation wallet
         _mint(treasuryAddress, 21000000000000000);
